@@ -1,19 +1,21 @@
-def is_prime(num):
-    if num < 2:
-        return False  
-    i = 2
-    while i * i <= num:
-        if num % i == 0:
-            return False 
-        i += 1 
-
+# Function to check if a number is prime
+def is_prime(n):
+    if not isinstance(n, int):
+        raise ValueError("Input must be an integer.")
+    if n <= 1:
+        return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0:
+            return False
     return True
 
+# Get input from the user
 if __name__ == "__main__":
-    num = int(input("enter the number : "))
-    if is_prime(num=num):
-        print(num," is prime ")
-    else:
-        print(num, " is not prime")
-
-#  python .\codes\prime_number.py
+    try:
+        num = int(input("Enter a number: "))
+        if is_prime(num):
+            print(f"{num} is a Prime number.")
+        else:
+            print(f"{num} is NOT a Prime number.")
+    except ValueError as e:
+        print(f"Error: {e}")
