@@ -1,5 +1,5 @@
 import os
-import ast
+import astwith
 import streamlit as st
 from google import genai
 from google.genai import errors
@@ -15,15 +15,17 @@ st.title("🤖 Automated Python Code Reviewer & Bug Explainer")
 st.markdown("Paste your Python code below or upload a file to get an instant AI-powered code review, bug analysis, and optimization report.")
 
 # Sidebar for API Key & Settings
+# Sidebar for Settings & Secrets
 with st.sidebar:
     st.header("Configuration")
-    # Allows users to input their key, or fallback to environment variables (useful for cloud deployment)
-    api_key_input = st.text_input("Gemini API Key", type="password", help="Enter your Gemini API key.")
+    # Automatically pull key from Streamlit Secrets or environment variables
+    api_key_input = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
+    
+    st.success("🔒 API Key loaded securely from Secrets.")
     st.markdown("---")
     st.markdown("### 💡 Tips")
     st.markdown("- Checks for syntax errors instantly using AST.")
     st.markdown("- Powered by **Gemini** for deep logic and security review.")
-
 # Main Interface: Code Input Option
 input_method = st.radio("Choose input method:", ["Paste Code", "Upload Python File"])
 
