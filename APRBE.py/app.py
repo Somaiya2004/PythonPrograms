@@ -365,13 +365,18 @@ print(s1.get_details())
             st.session_state.theme = selected_theme
             st.rerun()
             
-        st.markdown("---")
-        st.markdown("### 🧹 History & Cache Controls")
-        
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            if st.button("🗑️ Clear Review History"):
-                st.session_state.history = []
-                st.success("Code review history cleared!")
-                
-        with col_c
+      st.markdown("---")
+            st.markdown("### 🧹 History & Cache Controls")
+            
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                if st.button("🗑️ Clear Review History"):
+                    st.session_state.history = []
+                    st.success("Code review history cleared!")
+                    
+            with col_c2:
+                if st.button("🔄 Reset Assessment Quiz Score"):
+                    st.session_state.quiz_index = 0
+                    st.session_state.quiz_score = 0
+                    st.session_state.quiz_answers = {}
+                    st.success("Quiz progress reset!")
