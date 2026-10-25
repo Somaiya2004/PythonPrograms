@@ -1,5 +1,6 @@
 import os
 import ast
+import time
 import streamlit as st
 from google import genai
 from google.genai import errors
@@ -65,38 +66,50 @@ if st.button("🚀 Review Code", type="primary"):
                     syntax_valid = False
                     syntax_error_msg = str(e)
 
-                # 2. AI Review via Gemini (Standard Reliable Call)
-                try:
-                    client = genai.Client(api_key=api_key)
-                    prompt = f"""
-                    You are an expert Principal Python Software Engineer and Code Reviewer. 
-                    Review the following Python code snippet.
+                # 2. AI Review via Gemini (with Automatic Retry Loop for 503 errors)
+                review_result = None
+                max_retries = 3
+                retry_delay = 2
 
-                    Provide your review structured clearly with the following sections using Markdown:
-                    1. **Summary & Overall Health Score** (Out of 10)
-                    2. **Bugs, Logic Flaws & Vulnerabilities** (Detailed breakdown of any errors, security risks, or edge cases)
-                    3. **Performance & Best Practices** (Suggestions for Pythonic improvements, PEP 8 compliance, and speed optimization)
-                    4. **Refactored Code** (Provide clean, corrected, and production-ready code block)
+                for attempt in range(max_retries):
+                    try:
+                        client = genai.Client(api_key=api_key)
+                        prompt = f"""
+                        You are an expert Principal Python Software Engineer and Code Reviewer. 
+                        Review the following Python code snippet.
 
-                    Here is the source code to review:
-                    ```python
-                    {source_code}
-                    ```
-                    """
-                    
-                    response = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=prompt,
-                    )
-                    review_result = response.text
-                    
-                except errors.APIError as e:
-                    if getattr(e, 'code', None) == 503:
-                        review_result = "⚠️ **Server Busy (503):** The AI model is currently experiencing high demand. Please wait a few seconds and click 'Review Code' again."
-                    else:
-                        review_result = f"API Error occurred: {e}"
-                except Exception as e:
-                    review_result = f"An unexpected server error occurred: {e}"
+                        Provide your review structured clearly with the following sections using Markdown:
+                        1. **Summary & Overall Health Score** (Out of 10)
+                        2. **Bugs, Logic Flaws & Vulnerabilities** (Detailed breakdown of any errors, security risks, or edge cases)
+                        3. **Performance & Best Practices** (Suggestions for Pythonic improvements, PEP 8 compliance, and speed optimization)
+                        4. **Refactored Code** (Provide clean, corrected, and production-ready code block)
+
+                        Here is the source code to review:
+                        ```python
+                        {source_code}
+                        ```
+                        """
+                        
+                        response = client.models.generate_content(
+                            model='gemini-1.5-flash',
+                            contents=prompt,
+                        )
+                        review_result = response.text
+                        break  # Success, exit retry loop!
+                        
+                    except errors.APIError as e:
+                        if getattr(e, 'code', None) == 503 and attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # Double the wait time for next try
+                            continue
+                        elif getattr(e, 'code', None) == 503:
+                            review_result = "⚠️ **Server Busy (503):** The AI model is currently experiencing high demand after multiple attempts. Please wait a moment and try again."
+                        else:
+                            review_result = f"API Error occurred: {e}"
+                            break
+                    except Exception as e:
+                        review_result = f"An unexpected server error occurred: {e}"
+                        break
 
             # Display Results
             st.markdown("---")
