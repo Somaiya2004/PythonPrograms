@@ -1,4 +1,4 @@
-import os
+ import os
 import ast
 import streamlit as st
 from google import genai
@@ -14,7 +14,6 @@ st.set_page_config(
 st.title("🤖 Automated Python Code Reviewer & Bug Explainer")
 st.markdown("Paste your Python code below or upload a file to get an instant AI-powered code review, bug analysis, and optimization report.")
 
-# Sidebar for API Key & Settings
 # Sidebar for Settings & Secrets
 with st.sidebar:
     st.header("Configuration")
@@ -26,6 +25,7 @@ with st.sidebar:
     st.markdown("### 💡 Tips")
     st.markdown("- Checks for syntax errors instantly using AST.")
     st.markdown("- Powered by **Gemini** for deep logic and security review.")
+
 # Main Interface: Code Input Option
 input_method = st.radio("Choose input method:", ["Paste Code", "Upload Python File"])
 
@@ -85,13 +85,16 @@ if st.button("🚀 Review Code", type="primary"):
                     """
                     
                     response = client.models.generate_content(
-                        model='gemini-3.8-flash',
+                        model='gemini-2.5-flash',
                         contents=prompt,
                     )
                     review_result = response.text
                     
                 except errors.APIError as e:
-                    review_result = f"API Error occurred: {e}"
+                    if getattr(e, 'code', None) == 503:
+                        review_result = "⚠️ **Server Busy (503):** The AI model is currently experiencing high demand. Please wait a few seconds and click 'Review Code' again."
+                    else:
+                        review_result = f"API Error occurred: {e}"
                 except Exception as e:
                     review_result = f"An unexpected error occurred: {e}"
 
