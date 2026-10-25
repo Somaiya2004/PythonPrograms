@@ -132,7 +132,6 @@ def render_auth():
 # -----------------------------------------------------------------------------
 def get_100_quiz_questions():
     questions = []
-    # Generate 100 structured Python questions
     topics = ["Variables", "Data Types", "Lists", "Tuples", "Dictionaries", "Functions", "OOP", "Control Flow", "Modules", "Exceptions"]
     
     for i in range(1, 101):
@@ -212,7 +211,6 @@ def render_main_app():
                 st.markdown("### 🤖 2. Gemini AI Deep Analysis")
                 with st.spinner("Analyzing code quality, performance, and security..."):
                     try:
-                        # Fetch API key from Streamlit Secrets
                         api_key = st.secrets["GEMINI_API_KEY"]
                         client = genai.Client(api_key=api_key)
                         
@@ -237,7 +235,6 @@ def render_main_app():
                         review_result = response.text
                         st.markdown(review_result)
                         
-                        # Save to history cache
                         st.session_state.history.append({
                             "code": user_code,
                             "review": review_result
@@ -264,7 +261,7 @@ def render_main_app():
         
         if topic == "1. Python Basics & Syntax":
             st.markdown("### 🔹 Python Basics & Variables")
-            st.write("Python is a high-level, interpreted programming language known for readbility.")
+            st.write("Python is a high-level, interpreted programming language known for readability.")
             st.code("""
 # Variables and Data Types
 name = "Alice"       # String
@@ -316,7 +313,6 @@ print(s1.get_details())
         curr_idx = st.session_state.quiz_index
         q = questions[curr_idx]
         
-        # Progress bar
         st.progress((curr_idx + 1) / 100)
         st.caption(f"Question {curr_idx + 1} of 100 | Score: **{st.session_state.quiz_score}** points")
         
@@ -365,18 +361,36 @@ print(s1.get_details())
             st.session_state.theme = selected_theme
             st.rerun()
             
-      st.markdown("---")
-            st.markdown("### 🧹 History & Cache Controls")
-            
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                if st.button("🗑️ Clear Review History"):
-                    st.session_state.history = []
-                    st.success("Code review history cleared!")
-                    
-            with col_c2:
-                if st.button("🔄 Reset Assessment Quiz Score"):
-                    st.session_state.quiz_index = 0
-                    st.session_state.quiz_score = 0
-                    st.session_state.quiz_answers = {}
-                    st.success("Quiz progress reset!")
+        st.markdown("---")
+        st.markdown("### 🧹 History & Cache Controls")
+        
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            if st.button("🗑️ Clear Review History"):
+                st.session_state.history = []
+                st.success("Code review history cleared!")
+                
+        with col_c2:
+            if st.button("🔄 Reset Assessment Quiz Score"):
+                st.session_state.quiz_index = 0
+                st.session_state.quiz_score = 0
+                st.session_state.quiz_answers = {}
+                st.success("Quiz progress reset!")
+                
+        st.markdown("---")
+        st.markdown("### 📜 Saved Review History")
+        if st.session_state.history:
+            for idx, item in enumerate(reversed(st.session_state.history)):
+                with st.expander(f"Review #{len(st.session_state.history) - idx}"):
+                    st.code(item['code'], language="python")
+                    st.write(item['review'])
+        else:
+            st.info("No code reviews saved in this session yet.")
+
+# -----------------------------------------------------------------------------
+# 5. ENTRY POINT
+# -----------------------------------------------------------------------------
+if not st.session_state.authenticated:
+    render_auth()
+else:
+    render_main_app()
