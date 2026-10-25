@@ -1,312 +1,377 @@
-import os
-import ast
 import streamlit as st
+import ast
+import json
 from google import genai
-from google.genai import errors, types
+from google.genai import types
 
-# Page Configuration
+# -----------------------------------------------------------------------------
+# 1. PAGE CONFIGURATION & THEME CUSTOMIZATION
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Python Hub: AI Reviewer & Academy",
+    page_title="AI Python Reviewer & Learning Hub",
     page_icon="🐍",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Initialize Session States
+# Initialize Session State Variables
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
-if "score" not in st.session_state:
-    st.session_state.score = 0
-if "review_history" not in st.session_state:
-    st.session_state.review_history = []
-if "quiz_submitted" not in st.session_state:
-    st.session_state.quiz_submitted = False
+if "auth_mode" not in st.session_state:
+    st.session_state.auth_mode = "signin"  # 'signin' or 'signup'
+if "theme" not in st.session_state:
+    st.session_state.theme = "Dark"
+if "desktop_mode" not in st.session_state:
+    st.session_state.desktop_mode = False
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "quiz_index" not in st.session_state:
+    st.session_state.quiz_index = 0
+if "quiz_score" not in st.session_state:
+    st.session_state.quiz_score = 0
+if "quiz_answers" not in st.session_state:
+    st.session_state.quiz_answers = {}
 
-# ==========================================
-# 1. GOOGLE SIGN-IN GATE (OPENING PAGE)
-# ==========================================
-if not st.session_state.authenticated:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+# Custom CSS styling based on theme
+if st.session_state.theme == "Dark":
+    bg_color = "#0e1117"
+    card_bg = "#1e222a"
+    text_color = "#ffffff"
+else:
+    bg_color = "#f0f2f6"
+    card_bg = "#ffffff"
+    text_color = "#1f2937"
+
+st.markdown(f"""
+    <style>
+    .main {{ background-color: {bg_color}; color: {text_color}; }}
+    .stApp {{ background-color: {bg_color}; }}
+    .css-1r650q2, .css-12w0qpk {{ background-color: {card_bg} !important; }}
+    .stCard {{
+        background-color: {card_bg};
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }}
+    </style>
+""", unsafe_allow_html=True)
+
+# Container width layout setting
+if st.session_state.desktop_mode:
+    st.markdown("""
+        <style>
+        .block-container {
+            max-width: 1200px;
+            margin: auto;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# 2. AUTHENTICATION PAGE (SIGN IN / SIGN UP)
+# -----------------------------------------------------------------------------
+def render_auth():
+    st.title("🐍 AI Python Code Reviewer & Learning Hub")
+    st.subheader("Welcome! Please authenticate to continue.")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("<h2 style='text-align: center;'>🔵 Google Sign-In</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: gray;'>Sign in with your Google account to access Python Hub</p>", unsafe_allow_html=True)
+        st.markdown("<div class='stCard'>", unsafe_allow_html=True)
         
-        with st.form("google_login_form"):
-            email = st.text_input("Email or phone", placeholder="your.name@gmail.com")
-            password = st.text_input("Google Account Password", type="password", placeholder="••••••••••••")
+        tab1, tab2 = st.tabs(["Sign In", "Create Account"])
+        
+        # --- TAB 1: SIGN IN ---
+        with tab1:
+            st.markdown("### Sign In")
+            email = st.text_input("Email Address", key="signin_email")
+            password = st.text_input("Password", type="password", key="signin_password")
             
-            submit_login = st.form_submit_button("Sign In 🚀", use_container_width=True)
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("🔓 Sign In", use_container_width=True):
+                    if email and password:
+                        st.session_state.authenticated = True
+                        st.session_state.user_email = email
+                        st.rerun()
+                    else:
+                        st.error("Please enter email and password.")
             
-            if submit_login:
-                if email and "@" in email and len(password) >= 6:
-                    st.session_state.authenticated = True
-                    st.session_state.user_email = email
-                    st.success("Login successful! Loading Python Hub...")
-                    st.rerun()
+            st.markdown("---")
+            st.markdown("#### Or Sign In with Google")
+            if st.button("🌐 Continue with Google Account", use_container_width=True):
+                st.session_state.authenticated = True
+                st.session_state.user_email = "user.google@gmail.com"
+                st.rerun()
+
+        # --- TAB 2: CREATE ACCOUNT ---
+        with tab2:
+            st.markdown("### Create New Account")
+            new_email = st.text_input("Email Address", key="signup_email")
+            new_password = st.text_input("Create Password", type="password", key="signup_password")
+            confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm")
+            
+            if st.button("🚀 Register Account", use_container_width=True):
+                if not new_email or not new_password:
+                    st.error("Please fill in all fields.")
+                elif new_password != confirm_password:
+                    st.error("Passwords do not match!")
                 else:
-                    st.error("⚠️ Please enter a valid Google email and a password (at least 6 characters).")
-    
-    st.stop()  # Stop execution here until authenticated
+                    st.success("Account created successfully! Logging you in...")
+                    st.session_state.authenticated = True
+                    st.session_state.user_email = new_email
+                    st.rerun()
+                    
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# ==========================================
-# 2. SIDEBAR & NAVIGATION (INSIDE APP)
-# ==========================================
-with st.sidebar:
-    st.markdown("### 👤 Google Account")
-    st.info(f"**{st.session_state.user_email}**\n\n🏆 Score: **{st.session_state.score} XP**")
+# -----------------------------------------------------------------------------
+# 3. STATIC QUESTIONS GENERATOR (100 QUESTIONS)
+# -----------------------------------------------------------------------------
+def get_100_quiz_questions():
+    questions = []
+    # Generate 100 structured Python questions
+    topics = ["Variables", "Data Types", "Lists", "Tuples", "Dictionaries", "Functions", "OOP", "Control Flow", "Modules", "Exceptions"]
     
-    st.markdown("---")
-    st.markdown("### 🧭 Navigation")
-    navigation = st.radio("Go to:", [
-        "🖥️ Desktop", 
-        "🤖 AI Code Reviewer", 
-        "📚 Learning Hub (Notes)", 
-        "📝 Test Your Ability (Quiz)", 
-        "⚙️ Settings"
-    ])
-    
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    # Sign Out Button at the bottom
-    if st.button("🚪 Sign Out", use_container_width=True, type="secondary"):
-        st.session_state.authenticated = False
-        st.session_state.user_email = ""
-        st.rerun()
+    for i in range(1, 101):
+        topic = topics[(i - 1) % len(topics)]
+        questions.append({
+            "id": i,
+            "topic": topic,
+            "question": f"Question {i} [{topic}]: What is the output or behavior of python expression evaluated for question #{i}?",
+            "code": f"# Question {i} Example\nx = {i}\ny = {i * 2}\nprint(x + y)",
+            "options": [
+                f"Output: {i * 3}",
+                f"Output: {i * 2}",
+                f"SyntaxError",
+                f"TypeError"
+            ],
+            "correct": 0,
+            "explanation": f"In Python, x = {i} and y = {i*2}. Adding x + y results in {i + i*2} = {i*3}."
+        })
+    return questions
 
-# ==========================================
-# 3. APP VIEWS BASED ON NAVIGATION
-# ==========================================
-
-# --- DESKTOP VIEW ---
-if navigation == "🖥️ Desktop":
-    st.title("🖥️ Python Hub Desktop")
-    st.markdown(f"Welcome back, **{st.session_state.user_email}**! Here is your command center.")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(label="Your Current Score", value=f"{st.session_state.score} XP")
-    with col2:
-        st.metric(label="Reviews Performed", value=len(st.session_state.review_history))
-    with col3:
-        st.metric(label="Status", value="Active 🟢")
+# -----------------------------------------------------------------------------
+# 4. MAIN APPLICATION DASHBOARD
+# -----------------------------------------------------------------------------
+def render_main_app():
+    # --- SIDEBAR NAVIGATION & SETTINGS ---
+    with st.sidebar:
+        st.title("📌 Navigation")
+        st.write(f"Logged in as: **{st.session_state.user_email}**")
         
-    st.markdown("---")
-    st.markdown("### 🚀 Quick Access")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.info("💡 **AI Code Reviewer:** Paste your code and let Gemini inspect bugs, security flaws, and refactor it instantly.")
-    with c2:
-        st.info("📚 **Learning Hub:** Access complete Python notes, master coding concepts, and take ability tests to gain score points!")
+        page = st.radio("Go to:", [
+            "🚀 AI Code Reviewer", 
+            "📚 Learning Hub", 
+            "🎯 100-Question Assessment", 
+            "⚙️ Settings"
+        ])
+        
+        st.markdown("---")
+        
+        # Desktop / Layout Toggle
+        desktop = st.checkbox("🖥️ Desktop Mode (Max Width)", value=st.session_state.desktop_mode)
+        if desktop != st.session_state.desktop_mode:
+            st.session_state.desktop_mode = desktop
+            st.rerun()
+            
+        st.markdown("---")
+        
+        # Sign Out Option at Bottom
+        if st.button("🔴 Sign Out", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.user_email = ""
+            st.rerun()
 
-# --- AI CODE REVIEWER VIEW ---
-elif navigation == "🤖 AI Code Reviewer":
-    st.title("🤖 AI Code Reviewer & Bug Explainer")
-    st.markdown("Paste your Python code or upload a file for an instant AI-powered engineering review.")
-    
-    input_method = st.radio("Choose input method:", ["Paste Code", "Upload Python File"], key="code_input_method")
-    source_code = ""
-    
-    if input_method == "Paste Code":
-        source_code = st.text_area("Enter your Python code here:", height=250, placeholder="def add(a, b):\n    return a + b")
-    else:
-        uploaded_file = st.file_uploader("Upload a .py file", type=["py"])
-        if uploaded_file is not None:
-            try:
-                source_code = uploaded_file.read().decode("utf-8")
-                st.code(source_code, language="python")
-            except Exception as e:
-                st.error(f"Error reading file: {e}")
-
-    if st.button("🚀 Review Code", type="primary"):
-        if not source_code.strip():
-            st.warning("⚠️ Please provide some Python code to review.")
-        else:
-            api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
-            if not api_key:
-                st.error("❌ Error: Gemini API Key is missing in secrets.")
+    # -------------------------------------------------------------------------
+    # PAGE 1: AI CODE REVIEWER
+    # -------------------------------------------------------------------------
+    if page == "🚀 AI Code Reviewer":
+        st.title("🚀 AI Python Code Reviewer")
+        st.caption("Paste your Python code below to get instant syntax checks and AI-powered reviews.")
+        
+        user_code = st.text_area("Write or paste Python code here:", height=250, value="""def calculate_total(items):\n    total = 0\n    for item in items:\n        total += item\n    return total\n\nscores = [85, 90, 78]\nprint("Total:", calculate_total(scores))""")
+        
+        col_run, col_clear = st.columns([1, 5])
+        with col_run:
+            run_review = st.button("⚡ Review Code", type="primary")
+            
+        if run_review:
+            if not user_code.strip():
+                st.warning("Please enter some Python code to review.")
             else:
-                with st.spinner("Analyzing code structure and running AI review..."):
-                    # AST Check
-                    syntax_error_msg = None
+                st.markdown("### 🔍 1. AST Syntax Check")
+                try:
+                    ast.parse(user_code)
+                    st.success("✅ AST Syntax Check Passed: No syntax errors detected.")
+                except SyntaxError as e:
+                    st.error(f"❌ Syntax Error Detected on line {e.lineno}: {e.msg}")
+                
+                st.markdown("### 🤖 2. Gemini AI Deep Analysis")
+                with st.spinner("Analyzing code quality, performance, and security..."):
                     try:
-                        ast.parse(source_code)
-                        syntax_valid = True
-                    except SyntaxError as e:
-                        syntax_valid = False
-                        syntax_error_msg = f"Syntax Error at line {e.lineno}, column {e.offset}: {e.text}\nMessage: {e.msg}"
-                    except Exception as e:
-                        syntax_valid = False
-                        syntax_error_msg = str(e)
-
-                    # Gemini Review
-                    try:
+                        # Fetch API key from Streamlit Secrets
+                        api_key = st.secrets["GEMINI_API_KEY"]
                         client = genai.Client(api_key=api_key)
+                        
                         prompt = f"""
-                        You are an expert Principal Python Software Engineer. Review the following Python code snippet concisely:
-                        1. **Summary & Health Score** (Out of 10)
-                        2. **Bugs & Vulnerabilities**
-                        3. **Performance & Best Practices**
-                        4. **Refactored Code**
+                        You are a Principal Software Engineer. Review the following Python code for:
+                        1. Potential logic bugs or edge cases.
+                        2. Performance optimizations and Pythonic best practices.
+                        3. Security vulnerabilities.
+                        4. Refactored / Improved version of the code.
 
-                        Code to review:
+                        Python Code:
                         ```python
-                        {source_code}
+                        {user_code}
                         ```
                         """
-                        config = types.GenerateContentConfig(temperature=0.2, max_output_tokens=1500)
-                        response = client.models.generate_content(model='gemini-3.8-flash', contents=prompt, config=config)
+                        
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt
+                        )
+                        
                         review_result = response.text
+                        st.markdown(review_result)
                         
-                        # Save history
-                        st.session_state.review_history.insert(0, {"code": source_code[:80], "result": review_result})
+                        # Save to history cache
+                        st.session_state.history.append({
+                            "code": user_code,
+                            "review": review_result
+                        })
                         
-                    except errors.APIError as e:
-                        err_code = getattr(e, 'code', None)
-                        if err_code == 503:
-                            review_result = "⚠️ **Server Busy (503):** High demand detected. Please click 'Review Code' again."
-                        elif err_code == 429:
-                            review_result = "⚠️ **Quota Exceeded (429):** Free daily limit reached. Please check your API key."
-                        else:
-                            review_result = f"API Error: {e}"
-                    except Exception as e:
-                        review_result = f"Error: {e}"
+                    except Exception as err:
+                        st.error(f"Error communicating with Gemini API: {err}")
 
-                st.markdown("---")
-                if not syntax_valid:
-                    st.error("❌ Static Analysis Warning: Syntax Error detected!")
-                    st.code(syntax_error_msg, language="text")
-                else:
-                    st.success("✅ Static Analysis Passed: No syntax errors found.")
-
-                st.markdown("### 📋 AI Code Review Report")
-                st.markdown(review_result)
-
-# --- LEARNING HUB VIEW (NOTES) ---
-elif navigation == "📚 Learning Hub (Notes)":
-    st.title("📚 Python Learning Hub & Free Notes")
-    st.markdown("Explore comprehensive study notes ranging from beginner basics to advanced Object-Oriented Programming.")
-    
-    module = st.selectbox("Select Learning Module:", [
-        "1. Python Syntax & Variables",
-        "2. Control Flow (If-Else & Loops)",
-        "3. Functions & Lambda Expressions",
-        "4. Data Structures (Lists, Dictionaries, Sets)",
-        "5. Object-Oriented Programming (OOP)"
-    ])
-    
-    st.markdown("---")
-    
-    if "Syntax" in module:
-        st.subheader("Module 1: Python Syntax & Variables")
-        st.markdown("""
-        Python relies on indentation for block scoping rather than curly braces.
-        * **Variables:** Containers for storing data values.
-        ```python
-        name = "Somaiya"
-        score = 95
-        is_active = True
-        ```
-        * **Type Casting:** Converting variables from one type to another (`int()`, `str()`, `float()`).
-        """)
-    elif "Control Flow" in module:
-        st.subheader("Module 2: Control Flow")
-        st.markdown("""
-        * **Conditional Statements:**
-        ```python
-        marks = 85
-        if marks >= 90:
-            print("Grade A")
-        elif marks >= 75:
-            print("Grade B")
-        else:
-            print("Grade C")
-        ```
-        * **Loops:** `for item in sequence:` and `while condition:`
-        """)
-    elif "Functions" in module:
-        st.subheader("Module 3: Functions & Lambda")
-        st.markdown("""
-        * **Defining Functions:**
-        ```python
-        def greet(user):
-            return f"Hello, {user}!"
-        ```
-        * **Lambda Functions:** Anonymous inline functions: `square = lambda x: x * x`
-        """)
-    elif "Data Structures" in module:
-        st.subheader("Module 4: Data Structures")
-        st.markdown("""
-        * **Lists:** Ordered and mutable `my_list = [1, 2, "apple"]`
-        * **Dictionaries:** Key-value mappings `student = {"name": "Alex", "age": 22}`
-        * **Sets:** Unordered collections of unique items `{1, 2, 3}`
-        """)
-    else:
-        st.subheader("Module 5: Object-Oriented Programming (OOP)")
-        st.markdown("""
-        * **Classes and Objects:**
-        ```python
-        class Dog:
-            def __init__(self, name):
-                self.name = name
-            def bark(self):
-                return f"{self.name} says Woof!"
-
-        my_dog = Dog("Buddy")
-        print(my_dog.bark())
-        ```
-        """)
-
-# --- TEST YOUR ABILITY VIEW (QUIZ & SCORE) ---
-elif navigation == "📝 Test Your Ability (Quiz)":
-    st.title("📝 Test Your Python Ability")
-    st.markdown("Answer the coding questions below to test your skills and **gain XP score points**!")
-    
-    with st.form("quiz_form"):
-        st.markdown("#### Q1: What is the correct file extension for Python files?")
-        q1 = st.radio("Choose one:", [".pt", ".py", ".python", ".pyt"], key="q1")
+    # -------------------------------------------------------------------------
+    # PAGE 2: LEARNING HUB
+    # -------------------------------------------------------------------------
+    elif page == "📚 Learning Hub":
+        st.title("📚 Python Learning Hub")
+        st.write("Explore full Python topics with detailed explanations, code examples, and notes.")
         
-        st.markdown("#### Q2: Which keyword is used to define a function in Python?")
-        q2 = st.radio("Choose one:", ["function", "def", "fun", "define"], key="q2")
+        topic = st.selectbox("Select Learning Module:", [
+            "1. Python Basics & Syntax",
+            "2. Data Structures (Lists, Dicts, Sets)",
+            "3. Control Flow & Loops",
+            "4. Functions & Lambdas",
+            "5. Object-Oriented Programming (OOP)",
+            "6. Error Handling & Exceptions"
+        ])
         
-        st.markdown("#### Q3: What data type is the result of expression `10 == 10`?")
-        q3 = st.radio("Choose one:", ["int", "float", "bool", "str"], key="q3")
+        if topic == "1. Python Basics & Syntax":
+            st.markdown("### 🔹 Python Basics & Variables")
+            st.write("Python is a high-level, interpreted programming language known for readbility.")
+            st.code("""
+# Variables and Data Types
+name = "Alice"       # String
+age = 25            # Integer
+gpa = 3.8           # Float
+is_student = True   # Boolean
+
+print(f"{name} is {age} years old with GPA {gpa}")
+            """, language="python")
+            st.info("💡 **Note:** Python uses dynamic typing, meaning you don't need to declare variable types explicitly.")
+
+        elif topic == "2. Data Structures (Lists, Dicts, Sets)":
+            st.markdown("### 🔹 Data Structures")
+            st.write("Python provides built-in collections to store multiple values.")
+            st.code("""
+# Lists (Ordered, Mutable)
+fruits = ["apple", "banana", "cherry"]
+fruits.append("orange")
+
+# Dictionary (Key-Value Pairs)
+user = {"name": "Somaiya", "role": "Developer"}
+
+# Set (Unique Values)
+unique_numbers = {1, 2, 3, 3, 4} # {1, 2, 3, 4}
+            """, language="python")
+
+        elif topic == "5. Object-Oriented Programming (OOP)":
+            st.markdown("### 🔹 Object-Oriented Programming")
+            st.code("""
+class Student:
+    def __init__(self, name, major):
+        self.name = name
+        self.major = major
+
+    def get_details(self):
+        return f"Student: {self.name}, Major: {self.major}"
+
+s1 = Student("Alex", "Artificial Intelligence")
+print(s1.get_details())
+            """, language="python")
+
+    # -------------------------------------------------------------------------
+    # PAGE 3: 100-QUESTION ASSESSMENT
+    # -------------------------------------------------------------------------
+    elif page == "🎯 100-Question Assessment":
+        st.title("🎯 Python Skill Test (100 Questions)")
+        questions = get_100_quiz_questions()
         
-        submit_quiz = st.form_submit_button("Submit Answers 🎯", use_container_width=True)
+        curr_idx = st.session_state.quiz_index
+        q = questions[curr_idx]
         
-        if submit_quiz:
-            earned_points = 0
-            if q1 == ".py":
-                earned_points += 10
-            if q2 == "def":
-                earned_points += 10
-            if q3 == "bool":
-                earned_points += 10
+        # Progress bar
+        st.progress((curr_idx + 1) / 100)
+        st.caption(f"Question {curr_idx + 1} of 100 | Score: **{st.session_state.quiz_score}** points")
+        
+        st.markdown(f"### Question {q['id']}: {q['topic']}")
+        st.write(q['question'])
+        
+        if q['code']:
+            st.code(q['code'], language="python")
+            
+        selected_option = st.radio(
+            "Select your answer:",
+            q['options'],
+            key=f"q_{curr_idx}"
+        )
+        
+        col_prev, col_sub, col_next = st.columns([1, 1, 1])
+        
+        with col_prev:
+            if st.button("⬅️ Previous") and curr_idx > 0:
+                st.session_state.quiz_index -= 1
+                st.rerun()
                 
-            st.session_state.score += earned_points
-            st.success(f"🎉 Quiz submitted! You earned **+{earned_points} XP**. Total Score: **{st.session_state.score} XP**")
+        with col_sub:
+            if st.button("✅ Submit Answer"):
+                choice_idx = q['options'].index(selected_option)
+                if choice_idx == q['correct']:
+                    st.success("🎉 Correct!")
+                    st.session_state.quiz_score += 10
+                else:
+                    st.error(f"❌ Incorrect. {q['explanation']}")
+                    
+        with col_next:
+            if st.button("Next ➡️") and curr_idx < 99:
+                st.session_state.quiz_index += 1
+                st.rerun()
 
-# --- SETTINGS VIEW ---
-elif navigation == "⚙️ Settings":
-    st.title("⚙️ Account & API Settings")
-    st.markdown(f"**Signed in user:** `{st.session_state.user_email}`")
-    st.markdown(f"**Total Score:** `{st.session_state.score} XP`")
-    
-    st.markdown("---")
-    st.subheader("🔑 Gemini API Key Configuration")
-    custom_key = st.text_input("Override Gemini API Key (Optional):", type="password", placeholder="AIzaSy...")
-    if custom_key:
-        os.environ["GEMINI_API_KEY"] = custom_key
-        st.success("Custom API key applied successfully!")
-    
-    st.markdown("---")
-    st.markdown("### 📜 Session History")
-    if not st.session_state.review_history:
-        st.info("No past code reviews recorded yet.")
-    else:
-        for i, item in enumerate(st.session_state.review_history):
-            with st.expander(f"Review #{len(st.session_state.review_history) - i}: {item['code']}..."):
-                st.markdown(item['result'])
+    # -------------------------------------------------------------------------
+    # PAGE 4: SETTINGS & CACHE MANAGEMENT
+    # -------------------------------------------------------------------------
+    elif page == "⚙️ Settings":
+        st.title("⚙️ App Settings & Cache Management")
+        
+        st.markdown("### 🎨 Appearance & Theme")
+        selected_theme = st.radio("Choose Theme:", ["Dark", "Light"], index=0 if st.session_state.theme == "Dark" else 1)
+        if selected_theme != st.session_state.theme:
+            st.session_state.theme = selected_theme
+            st.rerun()
+            
+        st.markdown("---")
+        st.markdown("### 🧹 History & Cache Controls")
+        
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            if st.button("🗑️ Clear Review History"):
+                st.session_state.history = []
+                st.success("Code review history cleared!")
+                
+        with col_c
