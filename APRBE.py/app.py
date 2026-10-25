@@ -67,6 +67,8 @@ if st.button("🚀 Review Code", type="primary"):
 
                 # 2. AI Review via Gemini
                 try:
+# 2. AI Review via Gemini (with Streaming)
+                try:
                     client = genai.Client(api_key=api_key)
                     prompt = f"""
                     You are an expert Principal Python Software Engineer and Code Reviewer. 
@@ -84,6 +86,39 @@ if st.button("🚀 Review Code", type="primary"):
                     ```
                     """
                     
+                    # Use generate_content_stream instead of generate_content
+                    response = client.models.generate_content_stream(
+                        model='gemini-3.8-flash',
+                        contents=prompt,
+                    )
+                    
+                    # We will stream the output directly to the UI below
+                    stream_response = response
+                    
+                except errors.APIError as e:
+                    if getattr(e, 'code', None) == 503:
+                        stream_response = "⚠️ **Server Busy (503):** The AI model is currently experiencing high demand. Please wait a few seconds and click 'Review Code' again."
+                    else:
+                        stream_response = f"API Error occurred: {e}"
+                except Exception as e:
+                    stream_response = f"An unexpected error occurred: {e}"
+
+            # Display Results
+            st.markdown("---")
+            
+            if not syntax_valid:
+                st.error("❌ Static Analysis Warning: Syntax Error detected in your code!")
+                st.code(syntax_error_msg, language="text")
+            else:
+                st.success("✅ Static Analysis Passed: No syntax errors found.")
+
+            st.markdown("### 📋 AI Code Review Report")
+            
+            # Stream the response live to the screen if it's a valid stream, otherwise print the error text
+            if hasattr(stream_response, '__iter__') and not isinstance(stream_response, str):
+                st.write_stream(stream_response)
+            else:
+                st.markdown(stream_response)                    
                     response = client.models.generate_content(
                         model='gemini-3.8-flash',
                         contents=prompt,
