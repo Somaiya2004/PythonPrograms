@@ -42,13 +42,12 @@ if not st.session_state.authenticated:
                 else:
                     st.error("⚠️ Please enter a valid Google email address.")
     
-    st.stop()  # Stop execution here until logged in
+    st.stop()
 
 # ==========================================
 # 2. MAIN APP (AFTER AUTHENTICATION)
 # ==========================================
 
-# Sidebar Profile & Navigation
 with st.sidebar:
     st.header("👤 Account")
     st.success(f"Signed in as:\n**{st.session_state.user_email}**")
@@ -61,17 +60,10 @@ with st.sidebar:
     st.header("⚙️ Configuration")
     api_key_input = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
     st.success("🔒 API Key loaded securely.")
-    
-    st.markdown("---")
-    st.markdown("### 💡 Hub Features")
-    st.markdown("- Instant AI Code Review")
-    st.markdown("- Free Python Notes & Tutorials")
-    st.markdown("- Session Review History")
 
 st.title("🐍 Python Hub: AI Reviewer & Learning Academy")
 st.markdown("Your all-in-one platform to review Python code, check bugs instantly, and learn Python from scratch for free.")
 
-# Main Navigation Tabs
 tab_reviewer, tab_learning, tab_history = st.tabs(["🤖 AI Code Reviewer", "📚 Python Learning Hub", "📜 Review History"])
 
 # --- TAB 1: AI CODE REVIEWER ---
@@ -100,7 +92,6 @@ with tab_reviewer:
                 st.error("❌ Error: Gemini API Key is missing.")
             else:
                 with st.spinner("Analyzing code structure and running AI review..."):
-                    # AST Check
                     syntax_error_msg = None
                     try:
                         ast.parse(source_code)
@@ -112,7 +103,6 @@ with tab_reviewer:
                         syntax_valid = False
                         syntax_error_msg = str(e)
 
-                    # Gemini Review
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
@@ -140,15 +130,17 @@ with tab_reviewer:
                         )
                         review_result = response.text
                         
-                        # Save to history session state
                         st.session_state.review_history.insert(0, {
                             "code": source_code[:100] + "..." if len(source_code) > 100 else source_code,
                             "result": review_result
                         })
                         
                     except errors.APIError as e:
-                        if getattr(e, 'code', None) == 503:
+                        error_code = getattr(e, 'code', None)
+                        if error_code == 503:
                             review_result = "⚠️ **Server Busy (503):** High demand detected. Please click 'Review Code' again."
+                        elif error_code == 429:
+                            review_result = "⚠️ **Daily Quota Exceeded (429):** You have hit the 20-request daily limit on your free Gemini API key. Please try again tomorrow or generate a new key from Google AI Studio."
                         else:
                             review_result = f"API Error occurred: {e}"
                     except Exception as e:
@@ -167,8 +159,6 @@ with tab_reviewer:
 # --- TAB 2: PYTHON LEARNING HUB ---
 with tab_learning:
     st.header("📚 Free Python Learning Sessions & Notes")
-    st.markdown("Master Python from scratch with curated notes, code examples, and practice exercises.")
-    
     topic = st.selectbox("Select a Learning Module:", [
         "1. Python Basics & Variables",
         "2. Control Flow (If-Else & Loops)",
@@ -182,74 +172,43 @@ with tab_learning:
     if "Basics" in topic:
         st.subheader("Module 1: Python Basics & Variables")
         st.markdown("""
-        Python is a high-level, interpreted programming language known for its readability.
-        
-        * **Variables:** Containers for storing data values. Unlike other languages, Python has no command for declaring a variable.
+        * **Variables:** Containers for storing data values.
         ```python
         x = 5
         name = "Somaiya"
         print(x, name)
         ```
-        * **Data Types:** `int` (integers), `float` (decimals), `str` (strings), `bool` (booleans).
         """)
     elif "Control Flow" in topic:
         st.subheader("Module 2: Control Flow")
         st.markdown("""
-        Control flow allows your program to make decisions and repeat tasks.
-        
-        * **Conditionals:** `if`, `elif`, `else`
-        ```python
-        age = 20
-        if age >= 18:
-            print("Eligible to vote")
-        else:
-            print("Minor")
-        ```
-        * **Loops:** `for` loops iterate over sequences, while `while` loops run as long as a condition is true.
+        * **Conditionals & Loops:** Use `if`, `for`, and `while` to manage logic flow.
         """)
     elif "Functions" in topic:
         st.subheader("Module 3: Functions & Scope")
         st.markdown("""
-        Functions are blocks of reusable code designed to perform a specific task.
-        
+        * **Functions:** Reusable blocks of code using `def`.
         ```python
-        def calculate_area(length, width):
-            return length * width
-
-        result = calculate_area(10, 5)
-        print(result) # Output: 50
+        def add(a, b):
+            return a + b
         ```
         """)
     elif "Data Structures" in topic:
         st.subheader("Module 4: Data Structures")
         st.markdown("""
-        * **Lists:** Ordered, mutable collections `[1, 2, 3]`
-        * **Dictionaries:** Key-value pairs `{"name": "Alice", "age": 25}`
-        * **Sets:** Unordered collections with unique elements `{1, 2, 3}`
+        * **Lists `[]`, Dictionaries `{}`, Sets `{}`**
         """)
     else:
         st.subheader("Module 5: Object-Oriented Programming (OOP)")
         st.markdown("""
-        OOP is a programming paradigm using classes and objects.
-        
-        ```python
-        class Car:
-            def __init__(self, brand):
-                self.brand = brand
-
-            def horn(self):
-                return f"{self.brand} goes beep beep!"
-
-my_car = Car("Toyota")
-print(my_car.horn())
-        ```
+        * **Classes & Objects** for structured programming.
         """)
 
 # --- TAB 3: REVIEW HISTORY ---
 with tab_history:
     st.header("📜 Past Code Reviews")
     if not st.session_state.review_history:
-        st.info("No reviews recorded yet in this session. Run a code review in the first tab to see your history here!")
+        st.info("No reviews recorded yet in this session.")
     else:
         for i, item in enumerate(st.session_state.review_history):
             with st.expander(f"Review #{len(st.session_state.review_history) - i}: {item['code']} ..."):
