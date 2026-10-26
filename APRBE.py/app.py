@@ -409,8 +409,8 @@ print("Even numbers:", evens)
         st.write(f"Manage your account, preferences, and local cache.")
         
         st.subheader("🎨 Appearance")
-        chosen_theme = st.radio("Theme Mode", ["Dark", "Light"], index=0 if st.session_state.theme == "Dark" else 1)
-        if chosen_theme != st.session_state.theme:
+    chosen_theme = st.radio("Theme Mode", ["Dark", "Light"], index=0
+         if st.session_state.theme == "Dark" else 1, key="theme_mode_selector")        if chosen_theme != st.session_state.theme:
             st.session_state.theme = chosen_theme
             st.rerun()
             
